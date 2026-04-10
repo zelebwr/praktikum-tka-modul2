@@ -1,0 +1,43 @@
+services:
+  object-storage:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - hollow_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    env_file: .env
+    networks:
+      - hollow_net
+    depends_on:
+      object-storage:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - hollow_net
+    depends_on:
+      - backend
+
+volumes:
+  minio_data:
+
+networks:
+  hollow_net:
+    driver: bridge
